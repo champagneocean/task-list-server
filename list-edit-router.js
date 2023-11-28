@@ -1,23 +1,54 @@
 const express = require('express');
 const router = express.Router();
+const app = express();
 
-// Lista de tareas (supongamos que está definida en otro archivo o en la misma aplicación)
+
 let listaTareas = [
   { indicador: 1, descripcion: 'Hacer la compra', completada: false },
   { indicador: 2, descripcion: 'Estudiar para el examen', completada: true },
-  // Otras tareas...
 ];
 
-// Middleware para parsear el cuerpo de las solicitudes como JSON
+
 router.use(express.json());
 
-// Ruta para crear una tarea (POST /crear)
-router.post('/crear', (req, res) => {
+function validarMetodoHTTP(req, res, next) {
+    const metodosPermitidos = ['GET', 'POST', 'PUT', 'DELETE']; 
+  
+    if (!metodosPermitidos.includes(req.method)) {
+      return res.status(405).json({ error: 'Método HTTP no permitido' });
+    }
+  
+    next();
+  }
+  app.use(validarMetodoHTTP);
+  app.get('/', (req, res) => {
+    res.send('Bienvenido al servidor de gestión de tareas.');
+  });
+  const port = 3000; 
+app.listen(port, () => {
+  console.log(`Servidor en ejecución en http://localhost:${port}`);
+});
+
+function validarSolicitud(req, res, next) {
   const { descripcion } = req.body;
 
-  if (!descripcion) {
-    return res.status(400).json({ error: 'La descripción de la tarea es obligatoria' });
+  if (req.method === 'POST' && !descripcion) {
+    return res.status(400).json({ error: 'La descripción de la tarea es obligatoria para crear una nueva tarea' });
   }
+
+  if (req.method === 'PUT' && (!descripcion || !('completada' in req.body))) {
+    return res.status(400).json({ error: 'La descripción y el estado completado son obligatorios para actualizar una tarea' });
+  }
+
+  next(); 
+}
+
+
+router.post('*', validarSolicitud);
+router.put('*', validarSolicitud);
+
+router.post('/crear', (req, res) => {
+  const { descripcion } = req.body;
 
   const nuevaTarea = {
     indicador: listaTareas.length + 1,
@@ -29,21 +60,6 @@ router.post('/crear', (req, res) => {
   res.json({ mensaje: 'Tarea creada exitosamente', tarea: nuevaTarea });
 });
 
-// Ruta para eliminar una tarea (DELETE /eliminar/:indicador)
-router.delete('/eliminar/:indicador', (req, res) => {
-  const indicador = parseInt(req.params.indicador);
-
-  const tareaIndex = listaTareas.findIndex(tarea => tarea.indicador === indicador);
-
-  if (tareaIndex !== -1) {
-    listaTareas.splice(tareaIndex, 1);
-    res.json({ mensaje: `Tarea con indicador ${indicador} eliminada` });
-  } else {
-    res.status(404).json({ error: `No se encontró la tarea con indicador ${indicador}` });
-  }
-});
-
-// Ruta para actualizar una tarea (PUT /actualizar/:indicador)
 router.put('/actualizar/:indicador', (req, res) => {
   const indicador = parseInt(req.params.indicador);
   const { descripcion, completada } = req.body;
@@ -60,5 +76,4 @@ router.put('/actualizar/:indicador', (req, res) => {
   }
 });
 
-// Exporta el router para su uso en otras partes de la aplicación
 module.exports = router;
